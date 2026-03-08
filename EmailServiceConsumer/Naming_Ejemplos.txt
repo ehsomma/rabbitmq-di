@@ -1,0 +1,94 @@
+﻿Dominio (Aggregate root):
+> Person
+> User
+
+Servicios de proyección (uno por aggregate):
+> Person.Projection
+> User.Projection
+
+Servicios "transversales" (comparten aggregates):
+> EmailService
+> WhatsAppService
+
+Exchanges por aggregate:
+> person.integration.events
+> user.integration.events
+
+	el producer de Person publica en person.integration
+	el producer de User publica en user.integration
+
+Routing keys:
+	Person
+		person.created
+		person.updated
+		person.deleted
+
+	User
+		user.created
+		user.updated
+		user.deleted
+
+Queues (2 estrategias):
+	Estrategia A: Una queue por microservicio y por aggregate.
+	(Recomendada!!!)
+	------------
+		Para EmailService
+			email.person.integration
+			email.user.integration
+			
+			email.person.integration.dlx
+			email.person.integration.dlq
+			email.user.integration.dlx
+			email.user.integration.dlq
+
+		Para WhatsAppService
+			whatsapp.person.integration
+			whatsapp.user.integration
+			
+			whatsapp.person.integration.dlx
+			whatsapp.person.integration.dlq
+			whatsapp.user.integration.dlx
+			whatsapp.user.integration.dlq
+
+		Para Person.Projection
+			person.projection.integration
+			person.projection.integration.dlx / .dlq
+
+		Para User.Projection
+			user.projection.integration
+			user.projection.integration.dlx / .dlq
+
+		Ventajas
+		- Separás claramente los flujos
+		- Si email.user.integration se llena o falla, no afecta email.person.integration
+		- Podés poner distinta DLQ, retry, TTL, escalado por cada flujo
+		- Mucho más fácil de operar
+
+		Desventaja
+		- Más colas
+
+	Estrategia B: Una queue única por servicio transversal
+	------------
+		EmailService
+			email.integration
+
+		WhatsAppService
+			whatsapp.integration
+
+		Y ambas queues se bindearían a varios exchanges:
+			person.integration.events
+			user.integration.events
+
+		Ventajas
+			- Menos colas
+			- Más parecido a un “inbox” general del servicio
+		Desventajas
+			- Mezclás eventos de distintos aggregates en la misma cola
+			- Backpressure mezclado
+			- Políticas de retry/DLQ mezcladas
+			- Más difícil diagnostica
+			- Más difícil escalar por tipo de evento
+
+Bindings:
+> person.*
+> user.*
