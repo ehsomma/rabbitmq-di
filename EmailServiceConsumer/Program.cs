@@ -3,12 +3,14 @@ using Microsoft.Extensions.DependencyInjection;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using RabbitMQInterfaces;
-using System.Xml.Linq;
 
 // **********************
 // **     CONSUMER     **
 // **********************
 // Ver: Naming_Ejemplos.txt
+// NOTE: Este proyecto es una app de consola para demo. El microservicio WhatsappWorkerService es
+// un Worker/HostedService más adecuado para producción (para prod, convertir esta app de consola
+// a Worker).
 
 // ========================================
 // Simula un microservicio de envío de email.
@@ -28,16 +30,24 @@ using System.Xml.Linq;
 ServiceCollection services = new ServiceCollection();
 
 // Registra RabbitOptions.
-// Propiedades de configuración de RabbitMQ.
-// NOTE: Por ahora hardcode; Pasarlas a appsettings.
+// Configuración de RabbitMQ.
+// NOTE: Por ahora hardcode. Más adelante pasar a appsettings.json + IOptions<RabbitOptions>.
 services.AddSingleton(new RabbitOptions
 {
     HostName = "localhost",
     UserName = "guest",
     Password = "guest",
+
+    // Exchange de eventos de integración del aggregate Person.
     ExchangeName = "person.integration", // Renombrar a "person.integration.events"
+
+    // Queue de este microservicio.
     QueueName = "email.person.integration",
+
+    // Topic(s) que escucha esta queue.
     BindingKey = "person.*",
+
+    // Dead Letter Exchange / Queue propios del microservicio.
     DlxName = "email.person.integration.dlx",
     DlqName = "email.person.integration.dlq",
     DlqRoutingKey = "email.person.dlq"
@@ -64,16 +74,21 @@ services.Scan(scan => scan
     .WithSingletonLifetime());
 
 
-// Registra el IntegrationEventDispatcher (inyecta IEnumerable<IIntegrationMessageHandler>).
-// NOTE: Le manda internamente un enumerable con todas las clases que implementen IIntegrationMessageHandler.
+// Registra el IntegrationEventDispatcher.
+//
+// El dispatcher recibe internamente: IEnumerable<IIntegrationMessageHandler>
+// NOTE: DI construye automáticamente ese IEnumerable con todos los handlers registrados arriba.
 services.AddSingleton<IntegrationEventDispatcher>();
 
+// =====================================================
 // RabbitMQ
+//
 // Analogía de conceptos básicos:
-// 📞 Channel = Línea telefónica con el correo.
-// 🏢 Exchange = Centro de clasificación de correo.
-// 📬 Queue = Buzón.
-// 🔗 Bind = Etiqueta que le dice al centro: “Todo lo que diga ‘Ventas’ mandalo al buzón Ventas.”.
+// 📞 Channel = Línea telefónica con el correo (línea de comunicación con RabbitMQ).
+// 🏢 Exchange = Centro de clasificación de correo (distribuidor de mensajes).
+// 📬 Queue = Buzón donde quedan los mensajes luego de clasificarlos.
+// 🔗 Bind = Etiqueta que le dice al centro: "Todo lo que diga 'Ventas' mandalo al buzón Ventas.".
+// =====================================================
 
 // Registra el ConnectionFactory (usando factory lambda).
 services.AddSingleton(sp =>
@@ -98,12 +113,13 @@ services.AddSingleton(sp =>
 // [!] IMPORTANTE: Acá crea la conexión async, pero como estamos en registro DI (sync), hace
 // "sync over async" con GetAwaiter().GetResult().
 // Para consola demo está OK; en Worker/HostedService hay que hacerlo 100% async.
+// NOTA2: Cuando le dije a ChatGPT, hace un Worker, lo hizo igual con "sync over async".
 services.AddSingleton<IConnection>(sp =>
 {
     // Resuelve ConnectionFactory.
     ConnectionFactory connectionFactory = sp.GetRequiredService<ConnectionFactory>();
     
-    // Crear conexión una vez (sync over async en composición).
+    // Crea la conexión una vez (sync over async en composición).
     return connectionFactory.CreateConnectionAsync().GetAwaiter().GetResult();
 });
 
@@ -118,6 +134,8 @@ services.AddSingleton<IChannel>(sp =>
 
     return conn.CreateChannelAsync().GetAwaiter().GetResult();
 });
+
+// =====================================================
 
 // Construye el contenedor (ServiceProvider).
 // A partir de acá ya se puede usar serviceProvider para resolver instancias.
@@ -167,7 +185,7 @@ await channel.ExchangeDeclareAsync(
     autoDelete: false,
     arguments: null);
 
-// DLQ: Cola que recibirá mensajes dead-lettered.
+// DLQ: Cola que recibirá los mensajes rechazados / fallidos.
 await channel.QueueDeclareAsync(
     queue: opt.DlqName,
     durable: true,
@@ -184,7 +202,7 @@ await channel.QueueBindAsync(
 // Define los argumentos de la DLX para luego asignarlos a la queue principal.
 Dictionary<string, object?> mainQueueArgs = new Dictionary<string, object?>
 {
-    // A dónde mandar el mensaje cuando se "dead-letterea".
+    // Exchange al que RabbitMQ enviará el mensaje cuando se rechace.
     ["x-dead-letter-exchange"] = opt.DlxName,
 
     // Con qué routing key se re-publica al DLX (para que matchee el bind de la DLQ).
@@ -195,9 +213,9 @@ Dictionary<string, object?> mainQueueArgs = new Dictionary<string, object?>
 // [!] IMPORTANTE: declare debe ser CONSISTENTE en todos los servicios (si ya existe en otros consumers y producers,
 // debe coincidir) o RabbitMQ lanza PRECONDITION_FAILED.
 //
-// 1) Exchange.
+// 1) Exchange principal de eventos de integración.
 // Exchange: Es el "distribuidor", recibe mensajes del producer y decide a qué cola(s) enviarlos según
-// reglas (tipo Direct, Topic, Fanout, etc.).
+// reglas (tipo Direct, Topic, Fanout, etc.). 
 await channel.ExchangeDeclareAsync(
     opt.ExchangeName, 
     ExchangeType.Topic, 
@@ -205,7 +223,7 @@ await channel.ExchangeDeclareAsync(
     autoDelete: false, 
     arguments: null);
 
-// 2) Queue.
+// 2) Queue principal del microservicio.
 // Queue: Es donde se almacenan los mensajes hasta que un consumer los procesa.
 await channel.QueueDeclareAsync(
     queue: opt.QueueName,
@@ -221,14 +239,18 @@ await channel.QueueBindAsync(
     opt.ExchangeName, 
     opt.BindingKey);
 
-// Configura el QoS (Quality of Service) del chanel.
+// Configura el QoS del chanel (Quality of Service).
+//
 // QoS controla cuántos mensajes RabbitMQ entrega "en vuelo" a este consumer antes de recibir ACKs.
 // ACK = Acknowledgement (confirmación). Es el mensaje que el consumer envía al broker para
-// decir: "Ya procesé este mensaje correctamente.".
-// Es básicamente un limitador de “prefetch”.
-// Qué problema resuelve: Evita que RabbitMQ mande muchos mensajes seguidos.
-// - prefetchCount = 10 => hasta 10 mensajes sin ACK al mismo tiempo para este consumer.
-await channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 10, global: false);
+//       decir: "Ya procesé este mensaje correctamente.".
+//
+// - prefetchCount = 10 => hasta 10 mensajes sin ACK al mismo tiempo.
+// - Como autoAck = false, el mensaje se considera pendiente hasta ACK/NACK.
+await channel.BasicQosAsync(
+    prefetchSize: 0, 
+    prefetchCount: 10, 
+    global: false);
 
 // Cancelación / shutdown con Ctrl+C.
 //
@@ -244,10 +266,9 @@ Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
 AsyncEventingBasicConsumer consumer = new AsyncEventingBasicConsumer(channel);
 
 // Declara el handler para el evento que se ejecuta cuando llega un mensaje y se suscribe.
-// ea: Contiene la metadata del mensaje.
 // NOTA: += es la forma de C# para agregar el handler (suscribirse) a un evento.
 //
-// ea (BasicDeliverEventArgs) trae:
+// ea (BasicDeliverEventArgs) contiene la metadata del mensaje:
 //  - Body (payload).
 //  - BasicProperties (props.Type, MessageId, CorrelationId, headers, etc.).
 //  - DeliveryTag (id interno para ACK/NACK).
@@ -259,9 +280,7 @@ consumer.ReceivedAsync += async (_, ea) =>
         // Obtiene el type del mensaje, ej: "PersonCreatedIntegrationEvent".
         string? type = ea.BasicProperties?.Type;
 
-        // Resuelve el handler correspondiente para este tipo de mensaje.
-        // Si no existe handler registrado, preferimos rechazar (NACK requeue:false) para evitar
-        // loops infinitos y/o procesar algo desconocido.
+        // Si no hay handler registrado para ese tipo de mensaje, se rechaza.
         if (!dispatcher.TryResolve(type, out IIntegrationMessageHandler? handler))
         {
             Console.WriteLine($"[EmailService] Unknown message type: '{type ?? "(null)"}' -> reject");
@@ -316,7 +335,7 @@ await channel.BasicConsumeAsync(
     autoAck: false, // Hacemos el ACK manualmente luego de procesar el mensaje.
     consumer: consumer);
 
-// Mantener el proceso vivo hasta Ctrl+C.
+// Mantiene el proceso vivo hasta Ctrl+C.
 // NOTE: Esto es para demo de consola. En un Worker/HostedService, el proceso se mantiene vivo por
 // el ciclo de vida del host.
 Console.WriteLine("[EmailService] Listening... Ctrl+C to exit.");
@@ -326,6 +345,7 @@ try
 }
 catch (OperationCanceledException)
 {
+    // Shutdown.
 }
 
 // Shutdown ordenado.

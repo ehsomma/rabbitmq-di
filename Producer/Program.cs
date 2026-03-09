@@ -130,11 +130,11 @@ while (true)
 
     if (cmd == "c")
     {
-        await PublishAsync(new PersonCreatedIntegrationEvent(personId, "test@acme.com", DateTime.UtcNow));
+        await PublishAsync(new PersonCreatedIntegrationEvent(personId, "test@acme.com", "11 5000-0001", DateTime.UtcNow));
     }
     else if (cmd == "u")
     {
-        await PublishAsync(new PersonUpdatedIntegrationEvent(personId, "new@acme.com", DateTime.UtcNow));
+        await PublishAsync(new PersonUpdatedIntegrationEvent(personId, "new@acme.com", "11 5000-0002", DateTime.UtcNow));
     }
     else if (cmd == "d")
     {
@@ -142,7 +142,7 @@ while (true)
     }
     else if (cmd == "error") 
     {
-        await PublishAsync(new PersonCreatedIntegrationEvent(personId, "error@acme.com", DateTime.UtcNow));
+        await PublishAsync(new PersonCreatedIntegrationEvent(personId, "error@acme.com", "1234error", DateTime.UtcNow));
     }
 }
 

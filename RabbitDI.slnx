@@ -3,4 +3,5 @@
   <Project Path="Entities/Entities.csproj" />
   <Project Path="Producer/Producer.csproj" />
   <Project Path="RabbitMQInterfaces/RabbitMQInterfaces.csproj" Id="bf4187d1-a548-40b6-9a6e-507615a8c002" />
+  <Project Path="WhatsAppWorkerService/WhatsAppWorkerService.csproj" Id="dceb49bd-8bdd-48c6-80a6-c72cf7fe315a" />
 </Solution>

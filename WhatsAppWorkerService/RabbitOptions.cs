@@ -1,4 +1,4 @@
-﻿namespace Consumer
+﻿namespace WhatsAppWorkerService
 {
     public sealed class RabbitOptions
     {
