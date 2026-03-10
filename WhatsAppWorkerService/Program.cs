@@ -24,6 +24,7 @@ using WhatsAppWorkerService;
 // [*] Preguntar a chatgpt que haga ejemplos de nombres de colas y topic para WhatsApp y Projection
 // [*] Convertir de app de consola a Worker/HostedService (para no tener que usar "await Task.Delay infinito" para mantener el proceso vivo).
 // [ ] Mover a extension methods tipo AddXxxxx y UseXxxxx
+// [ ] Ver este consejo de ChatGPT: En lugar de registrar IChannel directamente, yo registraría solo la conexión y crearía el channel dentro del Worker.
 // ========================================
 
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
@@ -113,15 +114,16 @@ builder.Services.AddSingleton<IConnection>(sp =>
     return connectionFactory.CreateConnectionAsync().GetAwaiter().GetResult();
 });
 
-// Registra el Channel.
-// [!] IMPORTANTE: IChannel NO es thread-safe. En este ejemplo está bien porque hay un solo consumer
-// AMQP usando este channel (un chanel por Proyecto). Si se quisiesen trabajar en paralelo dentro
-// del mismo proyecto, se necesitarian más chanels.
-builder.Services.AddSingleton<IChannel>(sp =>
-{
-    IConnection conn = sp.GetRequiredService<IConnection>();
-    return conn.CreateChannelAsync().GetAwaiter().GetResult();
-});
+// MODI: El chanel ahora se crea dentro del Worker en ExecuteAsync(), no se registra en DI.
+//// Registra el Channel.
+//// [!] IMPORTANTE: IChannel NO es thread-safe. En este ejemplo está bien porque hay un solo consumer
+//// AMQP usando este channel (un chanel por Proyecto). Si se quisiesen trabajar en paralelo dentro
+//// del mismo proyecto, se necesitarian más chanels.
+//builder.Services.AddSingleton<IChannel>(sp =>
+//{
+//    IConnection conn = sp.GetRequiredService<IConnection>();
+//    return conn.CreateChannelAsync().GetAwaiter().GetResult();
+//});
 
 // =====================================================
 

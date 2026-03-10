@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using RabbitMQInterfaces;
+using System.Data.Common;
 
 namespace WhatsAppWorkerService;
 
@@ -22,7 +23,9 @@ public sealed class WhatsAppWorker : BackgroundService
 {
     private readonly RabbitOptions _opt;
     private readonly IntegrationEventDispatcher _dispatcher;
-    private readonly IChannel _channel;
+    private readonly IConnection _connection;
+    //private readonly IChannel _channel;
+    private IChannel? _channel;
     private readonly ILogger<WhatsAppWorker> _logger;
 
     /// <summary>
@@ -31,12 +34,14 @@ public sealed class WhatsAppWorker : BackgroundService
     public WhatsAppWorker(
         RabbitOptions opt,
         IntegrationEventDispatcher dispatcher,
-        IChannel channel,
+        //IChannel channel,
+        IConnection connection,
         ILogger<WhatsAppWorker> logger)
     {
         _opt = opt;
         _dispatcher = dispatcher;
-        _channel = channel;
+        //_channel = channel;
+        _connection = connection;
         _logger = logger;
     }
 
@@ -47,6 +52,8 @@ public sealed class WhatsAppWorker : BackgroundService
     /// <param name="stoppingToken">Token de cancelación controlado por el Host.Se activa cuando la app se está cerrando.</param>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        _channel = await _connection.CreateChannelAsync();
+
         /*
         Sobre DLQ (Dead Letter Queue):
         =============================
@@ -239,7 +246,13 @@ public sealed class WhatsAppWorker : BackgroundService
     {
         _logger.LogInformation("[WhatsAppService] Shutting down...");
 
-        await _channel.CloseAsync(cancellationToken);
+        //await _channel.CloseAsync(cancellationToken);
+        if (_channel is not null)
+        {
+            await _channel.CloseAsync(cancellationToken);
+            await _channel.DisposeAsync();
+        }
+
         await base.StopAsync(cancellationToken);
     }
 }
