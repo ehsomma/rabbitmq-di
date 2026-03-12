@@ -23,8 +23,9 @@ using WhatsAppWorkerService;
 // TODO:
 // [*] Preguntar a chatgpt que haga ejemplos de nombres de colas y topic para WhatsApp y Projection
 // [*] Convertir de app de consola a Worker/HostedService (para no tener que usar "await Task.Delay infinito" para mantener el proceso vivo).
+// [ ] Ver consejo de ChatGPT para usar type y no string.
 // [ ] Mover a extension methods tipo AddXxxxx y UseXxxxx
-// [ ] Ver este consejo de ChatGPT: En lugar de registrar IChannel directamente, yo registraría solo la conexión y crearía el channel dentro del Worker.
+// [*] Ver este consejo de ChatGPT: En lugar de registrar IChannel directamente, yo registraría solo la conexión y crearía el channel dentro del Worker.
 // ========================================
 
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
@@ -72,6 +73,9 @@ builder.Services.Scan(scan => scan
     .AddClasses(c => c.AssignableTo<IIntegrationMessageHandler>())
     .AsImplementedInterfaces()
     .WithSingletonLifetime());
+
+// Registra el IntegrationEventTypeResolver.
+builder.Services.AddSingleton<IntegrationEventTypeResolver>();
 
 // Registra el IntegrationEventDispatcher.
 //

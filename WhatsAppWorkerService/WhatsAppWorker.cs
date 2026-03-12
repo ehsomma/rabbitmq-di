@@ -4,6 +4,7 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using RabbitMQInterfaces;
 using System.Data.Common;
+using System.Runtime.ConstrainedExecution;
 
 namespace WhatsAppWorkerService;
 
@@ -27,6 +28,7 @@ public sealed class WhatsAppWorker : BackgroundService
     //private readonly IChannel _channel;
     private IChannel? _channel;
     private readonly ILogger<WhatsAppWorker> _logger;
+    private readonly IntegrationEventTypeResolver _typeResolver;
 
     /// <summary>
     /// Inicializa una nueva instancia de <see cref="WhatsAppWorker"/>.
@@ -36,13 +38,16 @@ public sealed class WhatsAppWorker : BackgroundService
         IntegrationEventDispatcher dispatcher,
         //IChannel channel,
         IConnection connection,
+        IntegrationEventTypeResolver typeResolver,
         ILogger<WhatsAppWorker> logger)
     {
         _opt = opt;
         _dispatcher = dispatcher;
         //_channel = channel;
         _connection = connection;
+        _typeResolver = typeResolver;
         _logger = logger;
+
     }
 
     /// <summary>
@@ -168,14 +173,41 @@ public sealed class WhatsAppWorker : BackgroundService
         {
             try
             {
-                // Obtiene el tipo del mensaje, ej: "PersonCreatedIntegrationEvent".
-                string? type = ea.BasicProperties?.Type;
+                // MODI: Antes usábamos el string MessageType, ahora usamos el Type HandledEventType.
+                //// Obtiene el tipo del mensaje, ej: "PersonCreatedIntegrationEvent".
+                //string? type = ea.BasicProperties?.Type;
+
+                //// Si no hay handler registrado para ese tipo de mensaje, se rechaza.
+                //if (!_dispatcher.TryResolve(type, out IIntegrationMessageHandler? handler))
+                //{
+                //    _logger.LogWarning("[WhatsAppService] Unknown message type: '{MessageType}' -> reject", type ?? "(null)");
+                //    await _channel.BasicNackAsync(ea.DeliveryTag,multiple: false, requeue: false);
+                //    return;
+                //}
+
+                // Obtiene el nombre del tipo del mensaje, ej: "PersonCreatedIntegrationEvent".
+                string? messageTypeName = ea.BasicProperties?.Type;
+
+                // Intenta resolver el tipo CLR de un evento a partir del string recibido por RabbitMQ.
+                if (!_typeResolver.TryResolve(messageTypeName, out Type? eventType))
+                {
+                    _logger.LogWarning(
+                        "[WhatsAppService] Unknown event type name: '{MessageTypeName}' -> reject",
+                        messageTypeName ?? "(null)");
+
+                    await _channel.BasicNackAsync(
+                        ea.DeliveryTag,
+                        multiple: false,
+                        requeue: false);
+
+                    return;
+                }
 
                 // Si no hay handler registrado para ese tipo de mensaje, se rechaza.
-                if (!_dispatcher.TryResolve(type, out IIntegrationMessageHandler? handler))
+                if (!_dispatcher.TryResolve(eventType, out IIntegrationMessageHandler? handler))
                 {
-                    _logger.LogWarning("[WhatsAppService] Unknown message type: '{MessageType}' -> reject", type ?? "(null)");
-                    await _channel.BasicNackAsync(ea.DeliveryTag,multiple: false, requeue: false);
+                    _logger.LogWarning("[WhatsAppService] No handler registered for event CLR type: '{EventType}' -> reject", eventType?.FullName);
+                    await _channel.BasicNackAsync(ea.DeliveryTag, multiple: false, requeue: false);
                     return;
                 }
 

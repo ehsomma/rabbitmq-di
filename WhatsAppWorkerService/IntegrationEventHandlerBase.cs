@@ -27,11 +27,17 @@ public abstract class IntegrationEventHandlerBase<TEvent> :
     IIntegrationMessageHandler,
     IIntegrationEventHandler<TEvent>
 {
+    // MODI: Ahora usamos el Type (HandledEventType) en lugar del string.
+    ///// <summary>
+    ///// Identificador del tipo de mensaje asociado a <typeparamref name="TEvent"/>.
+    ///// Por convención coincide con <see cref="IReadOnlyBasicProperties.Type"/> (producer).
+    ///// </summary>
+    //public string MessageType => typeof(TEvent).Name;
+
     /// <summary>
-    /// Identificador del tipo de mensaje asociado a <typeparamref name="TEvent"/>.
-    /// Por convención coincide con <see cref="IReadOnlyBasicProperties.Type"/> (producer).
+    /// Tipo CLR del evento manejado por este handler.
     /// </summary>
-    public string MessageType => typeof(TEvent).Name;
+    public Type HandledEventType => typeof(TEvent);
 
     /// <summary>
     /// Maneja el mensaje raw (bytes): deserializa a <typeparamref name="TEvent"/> y delega al handler tipado.

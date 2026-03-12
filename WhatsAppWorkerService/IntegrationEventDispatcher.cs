@@ -15,7 +15,9 @@ public sealed class IntegrationEventDispatcher
 {
     // Diccionario "MessageType -> handler". Se construye una sola vez en el constructor a partir de
     // la colección de handlers para luego devolver el handler correspondiente al MessageType.
-    private readonly Dictionary<string, IIntegrationMessageHandler> _consumersHandlers;
+    // MODI: Antes usábamos el string MessageType, ahora usamos el Type HandledEventType.
+    //private readonly Dictionary<string, IIntegrationMessageHandler> _consumersHandlers;
+    private readonly Dictionary<Type, IIntegrationMessageHandler> _consumersHandlers;
 
     /// <summary>
     /// Construye el dispatcher con todos los handlers registrados en DI.
@@ -26,25 +28,53 @@ public sealed class IntegrationEventDispatcher
     {
         ArgumentNullException.ThrowIfNull(handlers);
 
-        _consumersHandlers = handlers.ToDictionary(h => h.MessageType, StringComparer.Ordinal);
+        // MODI: Antes usábamos el string MessageType, ahora usamos el Type HandledEventType.
+        //_consumersHandlers = handlers.ToDictionary(h => h.MessageType, StringComparer.Ordinal);
+        _consumersHandlers = handlers.ToDictionary(h => h.HandledEventType, elementSelector: h => h);
+
     }
 
+    // MODI: Antes usábamos el string MessageType, ahora usamos el Type HandledEventType.
+    ///// <summary>
+    ///// Intenta resolver el handler para el tipo de mensaje indicado.
+    ///// </summary>
+    ///// <param name="messageType">Identificador del tipo de mensaje, normalmente proveniente de <c>BasicProperties.Type</c>.</param>
+    ///// <param name="handler">Asigna el handler resuelto si la operación fue exitosa.</param>
+    //public bool TryResolve(string? messageType, [NotNullWhen(true)] out IIntegrationMessageHandler? handler)
+    //{
+    //    bool ret = false;
+    //    handler = null;
+
+    //    if (string.IsNullOrWhiteSpace(messageType))
+    //    {
+    //        handler = null;
+    //        ret = false;
+    //    }
+    //    else if (_consumersHandlers.TryGetValue(messageType, out var resolved))
+    //    {
+    //        handler = resolved;
+    //        ret = true;
+    //    }
+
+    //    return ret;
+    //}
+
     /// <summary>
-    /// Intenta resolver el handler para el tipo de mensaje indicado.
+    /// Intenta resolver el handler correspondiente al tipo CLR del evento.
     /// </summary>
-    /// <param name="messageType">Identificador del tipo de mensaje, normalmente proveniente de <c>BasicProperties.Type</c>.</param>
+    /// <param name="eventType">El Type del evento.</param>
     /// <param name="handler">Asigna el handler resuelto si la operación fue exitosa.</param>
-    public bool TryResolve(string? messageType, [NotNullWhen(true)] out IIntegrationMessageHandler? handler)
+    public bool TryResolve(Type? eventType, [NotNullWhen(true)] out IIntegrationMessageHandler? handler)
     {
         bool ret = false;
         handler = null;
 
-        if (string.IsNullOrWhiteSpace(messageType))
+        if (eventType is null)
         {
             handler = null;
             ret = false;
         }
-        else if (_consumersHandlers.TryGetValue(messageType, out var resolved))
+        else if (_consumersHandlers.TryGetValue(eventType, out var resolved))
         {
             handler = resolved;
             ret = true;
