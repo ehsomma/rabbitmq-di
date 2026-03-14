@@ -2,9 +2,9 @@
 using RabbitMQInterfaces;
 using System.Text.Json;
 
-namespace Consumer;
+namespace EmailWorkerService;
 
-/// <summary>
+/// <summary>namespace EmailWorkerd
 /// Clase base que adapta un mensaje crudo (bytes) a un evento tipado (<typeparamref name="TEvent"/>).
 /// </summary>
 /// <typeparam name="TEvent">Tipo del evento de integración.</typeparam>
@@ -27,6 +27,7 @@ public abstract class IntegrationEventHandlerBase<TEvent> :
     IIntegrationMessageHandler,
     IIntegrationEventHandler<TEvent>
 {
+    // MODI: Ahora usamos el Type (HandledEventType) en lugar del string.
     ///// <summary>
     ///// Identificador del tipo de mensaje asociado a <typeparamref name="TEvent"/>.
     ///// Por convención coincide con <see cref="IReadOnlyBasicProperties.Type"/> (producer).

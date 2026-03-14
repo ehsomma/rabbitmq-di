@@ -2,12 +2,15 @@
 using RabbitMQInterfaces;
 using System.Diagnostics.CodeAnalysis;
 
-namespace Consumer;
+namespace EmailWorkerService;
 
 /// <summary>
 /// Resuelve el <see cref="IIntegrationMessageHandler"/> adecuado en función del tipo de mensaje.
 /// Enruta el evento al handler correspondiente.
 /// </summary>
+/// <remarks>
+/// Convención: <paramref name="messageType"/> suele ser el valor de <c>BasicProperties.Type</c>.
+/// </remarks>
 public sealed class IntegrationEventDispatcher
 {
     // Diccionario "MessageType -> handler". Se construye una sola vez en el constructor a partir de
@@ -25,9 +28,36 @@ public sealed class IntegrationEventDispatcher
     {
         ArgumentNullException.ThrowIfNull(handlers);
 
+        // MODI: Antes usábamos el string MessageType, ahora usamos el Type HandledEventType.
         //_consumersHandlers = handlers.ToDictionary(h => h.MessageType, StringComparer.Ordinal);
         _consumersHandlers = handlers.ToDictionary(h => h.HandledEventType, elementSelector: h => h);
+
     }
+
+    // MODI: Antes usábamos el string MessageType, ahora usamos el Type HandledEventType.
+    ///// <summary>
+    ///// Intenta resolver el handler para el tipo de mensaje indicado.
+    ///// </summary>
+    ///// <param name="messageType">Identificador del tipo de mensaje, normalmente proveniente de <c>BasicProperties.Type</c>.</param>
+    ///// <param name="handler">Asigna el handler resuelto si la operación fue exitosa.</param>
+    //public bool TryResolve(string? messageType, [NotNullWhen(true)] out IIntegrationMessageHandler? handler)
+    //{
+    //    bool ret = false;
+    //    handler = null;
+
+    //    if (string.IsNullOrWhiteSpace(messageType))
+    //    {
+    //        handler = null;
+    //        ret = false;
+    //    }
+    //    else if (_consumersHandlers.TryGetValue(messageType, out var resolved))
+    //    {
+    //        handler = resolved;
+    //        ret = true;
+    //    }
+
+    //    return ret;
+    //}
 
     /// <summary>
     /// Intenta resolver el handler correspondiente al tipo CLR del evento.

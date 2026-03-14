@@ -7,7 +7,7 @@
         public string Password { get; init; } = "guest";
 
         public string ExchangeName { get; init; } = "person.integration"; // topic
-        public string QueueName { get; init; } = "email.person.integration";
+        public string QueueName { get; init; } = "whatsapp.person.integration";
         public string BindingKey { get; init; } = "person.*";
         public string DlxName { get; internal set; } = string.Empty;
         public string DlqName { get; internal set; } = string.Empty;

@@ -1,8 +1,10 @@
 ﻿using Consumer;
+using EmailServiceConsumer;
 using Microsoft.Extensions.DependencyInjection;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using RabbitMQInterfaces;
+using System.Threading.Channels;
 
 // **********************
 // **     CONSUMER     **
@@ -73,6 +75,8 @@ services.Scan(scan => scan
     .AsImplementedInterfaces()
     .WithSingletonLifetime());
 
+// Registra el IntegrationEventTypeResolver.
+services.AddSingleton<IntegrationEventTypeResolver>();
 
 // Registra el IntegrationEventDispatcher.
 //
@@ -277,14 +281,21 @@ consumer.ReceivedAsync += async (_, ea) =>
 {
     try
     {
-        // Obtiene el type del mensaje, ej: "PersonCreatedIntegrationEvent".
-        string? type = ea.BasicProperties?.Type;
+        // Obtiene el nombre del tipo del mensaje, ej: "PersonCreatedIntegrationEvent".
+        string? messageTypeName = ea.BasicProperties?.Type;
 
-        // Si no hay handler registrado para ese tipo de mensaje, se rechaza.
-        if (!dispatcher.TryResolve(type, out IIntegrationMessageHandler? handler))
+        // Intenta resolver el tipo CLR de un evento a partir del string recibido por RabbitMQ.
+        if (!_typeResolver.TryResolve(messageTypeName, out Type? eventType))
         {
-            Console.WriteLine($"[EmailService] Unknown message type: '{type ?? "(null)"}' -> reject");
-            await channel.BasicNackAsync(ea.DeliveryTag, multiple: false, requeue: false);
+            _logger.LogWarning(
+                "[WhatsAppService] Unknown event type name: '{MessageTypeName}' -> reject",
+                messageTypeName ?? "(null)");
+
+            await _channel.BasicNackAsync(
+                ea.DeliveryTag,
+                multiple: false,
+                requeue: false);
+
             return;
         }
 
