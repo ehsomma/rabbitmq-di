@@ -1,4 +1,4 @@
-﻿namespace EmailWorkerService;
+﻿namespace Entities;
 
 public sealed class RabbitOptions
 {
@@ -7,9 +7,9 @@ public sealed class RabbitOptions
     public string Password { get; init; } = "guest";
 
     public string ExchangeName { get; init; } = "person.integration"; // topic
-    public string QueueName { get; init; } = "email.person.integration";
+    public string QueueName { get; init; } = string.Empty;
     public string BindingKey { get; init; } = "person.*";
-    public string DlxName { get; internal set; } = string.Empty;
-    public string DlqName { get; internal set; } = string.Empty;
-    public string DlqRoutingKey { get; internal set; } = string.Empty;
+    public string DlxName { get; init; } = string.Empty;
+    public string DlqName { get; init; } = string.Empty;
+    public string DlqRoutingKey { get; set; } = string.Empty;
 }
