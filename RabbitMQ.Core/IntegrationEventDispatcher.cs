@@ -1,8 +1,6 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using RabbitMQInterfaces;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 
-namespace EmailWorkerService;
+namespace RabbitMQ.Core;
 
 /// <summary>
 /// Resuelve el <see cref="IIntegrationMessageHandler"/> adecuado en función del tipo de mensaje.

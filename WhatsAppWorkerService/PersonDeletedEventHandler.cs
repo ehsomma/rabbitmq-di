@@ -1,7 +1,6 @@
 ﻿using Entities;
 using RabbitMQ.Client;
-using RabbitMQInterfaces;
-using System.Text.Json;
+using RabbitMQ.Core;
 
 namespace WhatsAppWorkerService;
 

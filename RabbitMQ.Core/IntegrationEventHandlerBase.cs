@@ -1,10 +1,9 @@
 ﻿using RabbitMQ.Client;
-using RabbitMQInterfaces;
 using System.Text.Json;
 
-namespace EmailWorkerService;
+namespace RabbitMQ.Core;
 
-/// <summary>namespace EmailWorkerd
+/// <summary>
 /// Clase base que adapta un mensaje crudo (bytes) a un evento tipado (<typeparamref name="TEvent"/>).
 /// </summary>
 /// <typeparam name="TEvent">Tipo del evento de integración.</typeparam>
@@ -51,7 +50,13 @@ public abstract class IntegrationEventHandlerBase<TEvent> :
         IReadOnlyBasicProperties props,
         CancellationToken ct)
     {
-        TEvent evt = JsonSerializer.Deserialize<TEvent>(body.Span)!;
+        TEvent? evt = JsonSerializer.Deserialize<TEvent>(body.Span);
+
+        if (evt is null)
+        {
+            throw new JsonException(
+                $"No se pudo deserializar el mensaje al tipo {typeof(TEvent).Name}.");
+        }
 
         await HandleAsync(evt, props, ct);
     }

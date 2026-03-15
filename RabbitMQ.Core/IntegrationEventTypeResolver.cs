@@ -1,9 +1,8 @@
-﻿using RabbitMQInterfaces;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace EmailWorkerService;
+namespace RabbitMQ.Core;
 
 /// <summary>
 /// Resuelve el tipo CLR de un evento de integración a partir del valor textual recibido 

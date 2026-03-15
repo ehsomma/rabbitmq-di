@@ -1,0 +1,125 @@
+﻿using Microsoft.Extensions.DependencyInjection;
+using RabbitMQ.Client;
+using RabbitMQ.Core;
+
+namespace RabbitMQ.Hosting;
+
+/// <summary>
+/// Extension methods para registrar consumers RabbitMQ en DI.
+/// </summary>
+public static class ServiceCollectionExtensions
+{
+    /// <summary>
+    /// Registra toda la infraestructura necesaria para consumir eventos de integración desde RabbitMQ.
+    /// </summary>
+    /// <typeparam name="THandlerAssemblyMarker">
+    /// Tipo marcador usado únicamente para indicar el assembly donde Scrutor debe buscar handlers.
+    /// </typeparam>
+    /// <param name="services">Colección de servicios DI.</param>
+    /// <param name="configure">Acción que inicializa <see cref="RabbitOptions"/>.</param>
+    public static IServiceCollection AddRabbitMqIntegrationConsumer<THandlerAssemblyMarker>(
+        this IServiceCollection services,
+        Action<RabbitOptions> configure)
+        where THandlerAssemblyMarker : class
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configure);
+
+        // =====================================================
+        // Registra RabbitOptions.
+        // Configuración de RabbitMQ.
+        // NOTE: Por ahora hardcode. Más adelante pasar a appsettings.json + IOptions.
+        // =====================================================
+
+        RabbitOptions options = new RabbitOptions();
+        configure(options);
+
+        services.AddSingleton(options);
+
+        // =====================================================
+        // Registra los handlers de los eventos de integración.
+        //
+        // Opción A: uno por uno (manual).
+        // Opción B: con Scrutor (scan por assembly).
+        //
+        // En este caso usamos Scrutor para no registrar handler por handler.
+        // Busca clases en el assembly de THandlerAssemblyMarker que implementen
+        // IIntegrationMessageHandler y las registra como sus interfaces.
+        //
+        // Resultado:
+        // DI podrá resolver IEnumerable<IIntegrationMessageHandler> con todos
+        // los handlers encontrados.
+        // =====================================================
+
+        services.Scan(scan => scan
+            .FromAssemblyOf<THandlerAssemblyMarker>()
+            .AddClasses(c => c.AssignableTo<IIntegrationMessageHandler>())
+            .AsImplementedInterfaces()
+            .WithSingletonLifetime());
+
+        // =====================================================
+        // Registra el IntegrationEventTypeResolver.
+        //
+        // Convierte el string recibido en BasicProperties.Type al Type CLR del evento.
+        // =====================================================
+
+        services.AddSingleton<IntegrationEventTypeResolver>();
+
+        // =====================================================
+        // Registra el IntegrationEventDispatcher.
+        //
+        // El dispatcher recibe internamente:
+        // IEnumerable<IIntegrationMessageHandler>
+        //
+        // DI construye automáticamente ese IEnumerable con todos los handlers
+        // registrados arriba.
+        // =====================================================
+
+        services.AddSingleton<IntegrationEventDispatcher>();
+
+        // =====================================================
+        // RabbitMQ
+        //
+        // Analogía de conceptos básicos:
+        // 📞 Channel = Línea telefónica con el correo (línea de comunicación con RabbitMQ).
+        // 🏢 Exchange = Centro de clasificación de correo (distribuidor de mensajes).
+        // 📬 Queue = Buzón donde quedan los mensajes luego de clasificarlos.
+        // 🔗 Bind = Etiqueta que le dice al centro: "Todo lo que diga 'Ventas' mandalo al buzón Ventas.".
+        // =====================================================
+
+        // Registra ConnectionFactory.
+        services.AddSingleton(sp =>
+        {
+            RabbitOptions opt = sp.GetRequiredService<RabbitOptions>();
+
+            return new ConnectionFactory
+            {
+                HostName = opt.HostName,
+                UserName = opt.UserName,
+                Password = opt.Password
+            };
+        });
+
+        // Registra Connection.
+        // [!] IMPORTANTE:
+        // Crea la conexión async, pero como estamos en composición DI (sync),
+        // usa "sync over async" con GetAwaiter().GetResult().
+        // En Worker está OK porque ocurre una sola vez durante startup.
+        services.AddSingleton<IConnection>(sp =>
+        {
+            ConnectionFactory connectionFactory = sp.GetRequiredService<ConnectionFactory>();
+            return connectionFactory.CreateConnectionAsync().GetAwaiter().GetResult();
+        });
+
+        // Registra el inicializador de topología RabbitMQ.
+        services.AddSingleton<RabbitMqTopologyInitializer>();
+
+        // Registra el Worker genérico.
+        //
+        // AddHostedService<T> le dice al Host:
+        // "cuando la aplicación arranque, ejecutá este BackgroundService".
+        services.AddHostedService<RabbitMqConsumerWorker>();
+
+        return services;
+    }
+}

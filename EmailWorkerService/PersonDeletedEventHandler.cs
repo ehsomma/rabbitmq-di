@@ -1,5 +1,6 @@
 ﻿using Entities;
 using RabbitMQ.Client;
+using RabbitMQ.Core;
 
 namespace EmailWorkerService;
 

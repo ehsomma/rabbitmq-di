@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using RabbitMQ.Core;
 using RabbitMQInterfaces;
 using System.Data.Common;
 using System.Runtime.ConstrainedExecution;
