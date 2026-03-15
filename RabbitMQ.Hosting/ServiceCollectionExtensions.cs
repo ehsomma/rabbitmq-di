@@ -2,7 +2,7 @@
 using RabbitMQ.Client;
 using RabbitMQ.Core;
 
-namespace RabbitMQ.Hosting;
+namespace Microsoft.Extensions.DependencyInjection;
 
 /// <summary>
 /// Extension methods para registrar consumers RabbitMQ en DI.
