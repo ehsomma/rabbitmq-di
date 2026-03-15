@@ -3,6 +3,7 @@ using RabbitMQ.Client;
 using RabbitMQ.Core;
 using RabbitMQ.Hosting;
 using System;
+using System.Reflection;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
@@ -14,15 +15,13 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// Registra toda la infraestructura necesaria para consumir eventos de integración desde RabbitMQ.
     /// </summary>
-    /// <typeparam name="THandlerAssemblyMarker">
-    /// Tipo marcador usado únicamente para indicar el assembly donde Scrutor debe buscar handlers.
-    /// </typeparam>
     /// <param name="services">Colección de servicios DI.</param>
+    /// <param name="handlersAssembly">Assembly donde se encuentran los handlers de eventos de integración (clases que implementan <see cref="IIntegrationMessageHandler"/>).</param>
     /// <param name="configure">Acción que inicializa <see cref="RabbitOptions"/>.</param>
-    public static IServiceCollection AddRabbitMqIntegrationConsumer<THandlerAssemblyMarker>(
+    public static IServiceCollection AddRabbitMqIntegrationConsumer(
         this IServiceCollection services,
+        Assembly handlersAssembly,
         Action<RabbitOptions> configure)
-        where THandlerAssemblyMarker : class
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configure);
@@ -50,7 +49,7 @@ public static class ServiceCollectionExtensions
         // los handlers encontrados.
         // =====================================================
         services.Scan(scan => scan
-            .FromAssemblyOf<THandlerAssemblyMarker>()
+            .FromAssemblies(handlersAssembly)
             .AddClasses(c => c.AssignableTo<IIntegrationMessageHandler>())
             .AsImplementedInterfaces()
             .WithSingletonLifetime());

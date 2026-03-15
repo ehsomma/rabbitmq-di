@@ -30,19 +30,21 @@ using WhatsAppWorkerService;
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
 // NOTE: Por ahora las opt estan hardcode. Más adelante pasar a appsettings.json + IOptions.
-builder.Services.AddRabbitMqIntegrationConsumer<PersonCreatedEventHandler>(opt =>
-{
-    opt.ServiceName = "WhatsAppService";
-    opt.HostName = "localhost";
-    opt.UserName = "guest";
-    opt.Password = "guest";
-    opt.ExchangeName = "person.integration";
-    opt.QueueName = "whatsapp.person.integration";
-    opt.BindingKey = "person.*";
-    opt.DlxName = "whatsapp.person.integration.dlx";
-    opt.DlqName = "whatsapp.person.integration.dlq";
-    opt.DlqRoutingKey = "whatsapp.person.dlq";
-    opt.PrefetchCount = 10;
+builder.Services.AddRabbitMqIntegrationConsumer(
+    typeof(Program).Assembly, 
+    opt =>
+        {
+            opt.ServiceName = "WhatsAppService";
+            opt.HostName = "localhost";
+            opt.UserName = "guest";
+            opt.Password = "guest";
+            opt.ExchangeName = "person.integration";
+            opt.QueueName = "whatsapp.person.integration";
+            opt.BindingKey = "person.*";
+            opt.DlxName = "whatsapp.person.integration.dlx";
+            opt.DlqName = "whatsapp.person.integration.dlq";
+            opt.DlqRoutingKey = "whatsapp.person.dlq";
+            opt.PrefetchCount = 10;
 });
 
 IHost host = builder.Build();
