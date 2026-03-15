@@ -1,6 +1,8 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using RabbitMQ.Client;
 using RabbitMQ.Core;
+using RabbitMQ.Hosting;
+using System;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
@@ -28,12 +30,9 @@ public static class ServiceCollectionExtensions
         // =====================================================
         // Registra RabbitOptions.
         // Configuración de RabbitMQ.
-        // NOTE: Por ahora hardcode. Más adelante pasar a appsettings.json + IOptions.
         // =====================================================
-
         RabbitOptions options = new RabbitOptions();
         configure(options);
-
         services.AddSingleton(options);
 
         // =====================================================
@@ -50,7 +49,6 @@ public static class ServiceCollectionExtensions
         // DI podrá resolver IEnumerable<IIntegrationMessageHandler> con todos
         // los handlers encontrados.
         // =====================================================
-
         services.Scan(scan => scan
             .FromAssemblyOf<THandlerAssemblyMarker>()
             .AddClasses(c => c.AssignableTo<IIntegrationMessageHandler>())
@@ -62,7 +60,6 @@ public static class ServiceCollectionExtensions
         //
         // Convierte el string recibido en BasicProperties.Type al Type CLR del evento.
         // =====================================================
-
         services.AddSingleton<IntegrationEventTypeResolver>();
 
         // =====================================================
@@ -74,7 +71,6 @@ public static class ServiceCollectionExtensions
         // DI construye automáticamente ese IEnumerable con todos los handlers
         // registrados arriba.
         // =====================================================
-
         services.AddSingleton<IntegrationEventDispatcher>();
 
         // =====================================================
