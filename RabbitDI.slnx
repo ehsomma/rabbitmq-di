@@ -4,5 +4,6 @@
   <Project Path="Producer/Producer.csproj" />
   <Project Path="RabbitMQ.Core/RabbitMQ.Core.csproj" Id="805fb851-1a96-4bf6-a06b-fa0da3d605d1" />
   <Project Path="RabbitMQ.Hosting/RabbitMQ.Hosting.csproj" Id="0935657b-edfe-479b-9ea7-327c87117ef2" />
+  <Project Path="RabbitMQ.Publishing/RabbitMQ.Publishing.csproj" Id="f4ae4cf9-0989-4610-91ba-0e8ea58c752f" />
   <Project Path="WhatsAppWorkerService/WhatsAppWorkerService.csproj" Id="dceb49bd-8bdd-48c6-80a6-c72cf7fe315a" />
 </Solution>

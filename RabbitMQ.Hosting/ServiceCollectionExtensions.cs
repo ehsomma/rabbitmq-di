@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using RabbitMQ.Client;
 using RabbitMQ.Core;
 using RabbitMQ.Hosting;
@@ -114,6 +115,84 @@ public static class ServiceCollectionExtensions
         // AddHostedService<T> le dice al Host:
         // "cuando la aplicación arranque, ejecutá este BackgroundService".
         services.AddHostedService<RabbitMqConsumerWorker>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registra la infraestructura mínima necesaria para publicar eventos
+    /// de integración en RabbitMQ.
+    /// </summary>
+    /// <param name="services">Colección de servicios DI.</param>
+    /// <param name="configure">Acción que inicializa <see cref="RabbitOptions"/>.</param>
+    public static IServiceCollection AddRabbitMqPublisher(
+        this IServiceCollection services,
+        Action<RabbitOptions> configure)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configure);
+
+        RabbitOptions options = new RabbitOptions();
+        configure(options);
+
+        services.TryAddSingleton(options);
+
+        // =====================================================
+        // RabbitMQ
+        //
+        // Analogía de conceptos básicos:
+        // 📞 Channel = Línea telefónica con el correo (línea de comunicación con RabbitMQ).
+        // 🏢 Exchange = Centro de clasificación de correo (distribuidor de mensajes).
+        // 📬 Queue = Buzón donde quedan los mensajes luego de clasificarlos.
+        // 🔗 Bind = Etiqueta que le dice al centro: "Todo lo que diga 'Ventas' mandalo al buzón Ventas.".
+        // =====================================================
+
+        // Registra ConnectionFactory.
+        services.TryAddSingleton(sp =>
+        {
+            RabbitOptions opt = sp.GetRequiredService<RabbitOptions>();
+
+            return new ConnectionFactory
+            {
+                HostName = opt.HostName,
+                UserName = opt.UserName,
+                Password = opt.Password
+            };
+        });
+
+        // Registra Connection.
+        // [!] IMPORTANTE:
+        // Crea la conexión async, pero como estamos en composición DI (sync),
+        // usa "sync over async" con GetAwaiter().GetResult().
+        // En Worker / Console está OK porque ocurre una sola vez durante startup.
+        services.TryAddSingleton<IConnection>(sp =>
+        {
+            ConnectionFactory connectionFactory = sp.GetRequiredService<ConnectionFactory>();
+            return connectionFactory.CreateConnectionAsync().GetAwaiter().GetResult();
+        });
+
+        // Registra el publicador raw.
+        services.TryAddSingleton<IIntegrationEventPublisher, RabbitMqIntegrationEventPublisher>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registra un publicador de eventos de integración basado en convención.
+    /// </summary>
+    /// <param name="services">Colección de servicios DI.</param>
+    /// <param name="configure">Acción que inicializa <see cref="RabbitOptions"/>.</param>
+    public static IServiceCollection AddRabbitMqConventionPublisher(
+        this IServiceCollection services,
+        Action<RabbitOptions> configure)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configure);
+
+        services.AddRabbitMqPublisher(configure);
+
+        services.TryAddSingleton<IIntegrationEventNamingStrategy, DefaultIntegrationEventNamingStrategy>();
+        services.TryAddSingleton<IConventionIntegrationEventPublisher, ConventionIntegrationEventPublisher>();
 
         return services;
     }
