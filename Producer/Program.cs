@@ -1,4 +1,4 @@
-﻿using Entities;
+﻿using MyProject.Shared.IntegrationEvents.Persons;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using RabbitMQ.Hosting;
@@ -10,9 +10,10 @@ using RabbitMQ.Hosting;
 // Ver: Naming_Ejemplos.txt
 //
 // TODO:
-// [ ] Analizar DefaultIntegrationEventNamingStrategy y ver si es suficiente o si necesitamos algo más complejo (ej: para manejar casos especiales, o para permitir cierta flexibilidad sin tener que crear un naming strategy completamente nuevo).
+// [*] Analizar DefaultIntegrationEventNamingStrategy y ver si es suficiente o si necesitamos algo más complejo (ej: para manejar casos especiales, o para permitir cierta flexibilidad sin tener que crear un naming strategy completamente nuevo).
 //     Ver como hace MassTransit: https://masstransit-project.com/advanced/rabbitmq.html#exchange-and-queue-naming-conventions
 //     Usar Namespaces y no solo el nombre del tipo para definir la convención? Ej: "MyApp.Domain.Person.CreatedIntegrationEvent".
+// [ ] (ChatGPT) lograr que los bindings se generen automáticamente a partir de los handlers registrados (usando el IntegrationEventTypeResolver que ya hicimos). 
 
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 

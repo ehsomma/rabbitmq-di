@@ -34,12 +34,12 @@ builder.Services.AddRabbitMqIntegrationConsumer(
             opt.HostName = "localhost";
             opt.UserName = "guest";
             opt.Password = "guest";
-            opt.ExchangeName = "person.integration";
-            opt.QueueName = "email.person.integration";
-            opt.BindingKey = "person.*";
-            opt.DlxName = "email.person.integration.dlx";
-            opt.DlqName = "email.person.integration.dlq";
-            opt.DlqRoutingKey = "email.person.dlq";
+            opt.ExchangeName = "persons.integration";
+            opt.QueueName = "email.persons.integration";
+            opt.BindingKey = "persons.*";
+            opt.DlxName = "email.persons.integration.dlx";
+            opt.DlqName = "email.persons.integration.dlq";
+            opt.DlqRoutingKey = "email.persons.dlq";
             opt.PrefetchCount = 10;
         });
 

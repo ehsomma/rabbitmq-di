@@ -5,15 +5,31 @@
 /// </summary>
 /// <remarks>
 /// Convención actual:
-/// - PersonCreatedIntegrationEvent  -> exchange: person.integration / routing key: person.created
-/// - PersonUpdatedIntegrationEvent  -> exchange: person.integration / routing key: person.updated
-/// - PersonDeletedIntegrationEvent  -> exchange: person.integration / routing key: person.deleted
 ///
-/// Es decir:
-/// {aggregate}{Action}IntegrationEvent
-///      ↓
-/// exchange   = {aggregate}.integration
-/// routingKey = {aggregate}.{action}
+/// Namespace:
+/// MyProject.Shared.IntegrationEvents.{aggregate}
+/// Ejemplo:
+/// MyProject.Shared.IntegrationEvents.Persons
+/// -> aggregate = "persons"
+///
+/// Event:
+/// {action}IntegrationEvent
+/// Ejemplo:
+/// AddressCreatedIntegrationEvent
+/// -> action = "addresscreated"
+///
+/// Resultado:
+/// - exchange   = {aggregate}.integration
+/// - routingKey = {aggregate}.{action}
+///
+/// Ejemplos:
+/// - MyProject.Shared.IntegrationEvents.Persons.PersonCreatedIntegrationEvent
+///   -> exchange: persons.integration
+///   -> routing key: persons.personcreated
+///
+/// - MyProject.Shared.IntegrationEvents.Persons.AddressCreatedIntegrationEvent
+///   -> exchange: persons.integration
+///   -> routing key: persons.addresscreated
 /// </remarks>
 public sealed class DefaultIntegrationEventNamingStrategy : IIntegrationEventNamingStrategy
 {
@@ -42,63 +58,64 @@ public sealed class DefaultIntegrationEventNamingStrategy : IIntegrationEventNam
     }
 
     /// <summary>
-    /// Extrae el nombre del aggregate del tipo del evento.
-    /// Ejemplo: PersonCreatedIntegrationEvent -> person
+    /// Extrae el aggregate desde el último segmento del namespace del evento.
     /// </summary>
+    /// <remarks>
+    /// Ejemplo:
+    /// Namespace: MyProject.Shared.IntegrationEvents.Persons
+    /// Resultado: persons
+    /// </remarks>
     private static string GetAggregateName(Type eventType)
     {
-        string eventName = eventType.Name;
+        string? ns = eventType.Namespace;
 
-        if (!eventName.EndsWith("IntegrationEvent", StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(ns))
         {
             throw new InvalidOperationException(
-                $"El tipo '{eventName}' no sigue la convención '*IntegrationEvent'.");
+                $"El tipo '{eventType.Name}' no tiene namespace y no se puede inferir el aggregate.");
         }
 
-        string baseName = eventName[..^"IntegrationEvent".Length];
+        int lastDotIndex = ns.LastIndexOf('.');
 
-        string[] knownActions = ["Created", "Updated", "Deleted"];
-
-        foreach (string action in knownActions)
+        if (lastDotIndex < 0 || lastDotIndex == ns.Length - 1)
         {
-            if (baseName.EndsWith(action, StringComparison.Ordinal))
-            {
-                string aggregate = baseName[..^action.Length];
-                return aggregate.ToLowerInvariant();
-            }
+            throw new InvalidOperationException(
+                $"No se pudo inferir el aggregate desde el namespace '{ns}'.");
         }
 
-        throw new InvalidOperationException(
-            $"No se pudo inferir la acción del evento '{eventName}'.");
+        string aggregate = ns[(lastDotIndex + 1)..];
+
+        return aggregate.ToLowerInvariant();
     }
 
     /// <summary>
-    /// Extrae la acción del tipo del evento.
-    /// Ejemplo: PersonCreatedIntegrationEvent -> created
+    /// Extrae la acción desde el nombre del evento, quitando el sufijo 'IntegrationEvent'.
     /// </summary>
+    /// <remarks>
+    /// Ejemplo:
+    /// AddressCreatedIntegrationEvent -> addresscreated
+    /// PersonDeletedIntegrationEvent -> persondeleted
+    /// </remarks>
     private static string GetActionName(Type eventType)
     {
         string eventName = eventType.Name;
 
-        if (!eventName.EndsWith("IntegrationEvent", StringComparison.Ordinal))
+        const string suffix = "IntegrationEvent";
+
+        if (!eventName.EndsWith(suffix, StringComparison.Ordinal))
         {
             throw new InvalidOperationException(
-                $"El tipo '{eventName}' no sigue la convención '*IntegrationEvent'.");
+                $"El tipo '{eventName}' no sigue la convención '*{suffix}'.");
         }
 
-        string baseName = eventName[..^"IntegrationEvent".Length];
+        string action = eventName[..^suffix.Length];
 
-        string[] knownActions = ["Created", "Updated", "Deleted"];
-
-        foreach (string action in knownActions)
+        if (string.IsNullOrWhiteSpace(action))
         {
-            if (baseName.EndsWith(action, StringComparison.Ordinal))
-            {
-                return action.ToLowerInvariant();
-            }
+            throw new InvalidOperationException(
+                $"No se pudo inferir la acción desde el evento '{eventName}'.");
         }
 
-        throw new InvalidOperationException(
-            $"No se pudo inferir la acción del evento '{eventName}'.");
+        return action.ToLowerInvariant();
     }
 }

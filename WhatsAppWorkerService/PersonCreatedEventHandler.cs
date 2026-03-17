@@ -1,4 +1,4 @@
-﻿using Entities;
+﻿using MyProject.Shared.IntegrationEvents.Persons;
 using RabbitMQ.Client;
 using RabbitMQ.Core;
 

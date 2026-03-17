@@ -1,4 +1,5 @@
-﻿namespace Entities;
+﻿////namespace Entities;
+namespace MyProject.Shared.IntegrationEvents.Persons;
 
 public class PersonDeletedIntegrationEvent
 {

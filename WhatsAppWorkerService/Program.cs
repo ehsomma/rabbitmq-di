@@ -1,4 +1,4 @@
-using Entities;
+using MyProject.Shared.IntegrationEvents.Persons;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Win32;
@@ -38,12 +38,12 @@ builder.Services.AddRabbitMqIntegrationConsumer(
             opt.HostName = "localhost";
             opt.UserName = "guest";
             opt.Password = "guest";
-            opt.ExchangeName = "person.integration";
-            opt.QueueName = "whatsapp.person.integration";
-            opt.BindingKey = "person.*";
-            opt.DlxName = "whatsapp.person.integration.dlx";
-            opt.DlqName = "whatsapp.person.integration.dlq";
-            opt.DlqRoutingKey = "whatsapp.person.dlq";
+            opt.ExchangeName = "persons.integration";
+            opt.QueueName = "whatsapp.persons.integration";
+            opt.BindingKey = "persons.*";
+            opt.DlxName = "whatsapp.persons.integration.dlx";
+            opt.DlqName = "whatsapp.persons.integration.dlq";
+            opt.DlqRoutingKey = "whatsapp.persons.dlq";
             opt.PrefetchCount = 10;
 });
 
