@@ -4,7 +4,7 @@ using EmailWorkerService;
 // **   WORKER / HOST  **
 // **    (CONSUMER)    **
 // **********************
-// Ver: Naming_Ejemplos.txt
+// Ver: Naming_Ejemplos.txt (en el proyecto WhatsAppWorkerService)
 
 // ========================================
 // Simula un microservicio de envío de Emails.

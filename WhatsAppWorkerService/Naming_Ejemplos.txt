@@ -1,4 +1,4 @@
-﻿Dominio (Aggregate root):
+﻿Dominio (Aggregates root):
 > Person
 > User
 
@@ -11,8 +11,8 @@ Servicios "transversales" (comparten aggregates):
 > WhatsAppService
 
 Exchanges por aggregate:
-> person.integration.events
-> user.integration.events
+> person.integration.events (o person.integration)
+> user.integration.events (o user.integration)
 
 	el producer de Person publica en person.integration
 	el producer de User publica en user.integration

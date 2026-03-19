@@ -7,7 +7,7 @@ using RabbitMQ.Hosting;
 // **     PRODUCER     **
 // **********************
 // Este producer sería el que dispara los eventos de integración del aggregate "Person".
-// Ver: Naming_Ejemplos.txt
+// Ver: Naming_Ejemplos.txt (en el proyecto WhatsAppWorkerService)
 //
 // TODO:
 // [*] Analizar DefaultIntegrationEventNamingStrategy y ver si es suficiente o si necesitamos algo más complejo (ej: para manejar casos especiales, o para permitir cierta flexibilidad sin tener que crear un naming strategy completamente nuevo).
