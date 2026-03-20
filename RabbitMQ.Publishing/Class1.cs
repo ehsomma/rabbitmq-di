@@ -2,6 +2,6 @@
 {
     public class Class1
     {
-
+        // Nunca se usó.
     }
 }

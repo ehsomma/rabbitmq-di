@@ -36,7 +36,13 @@ public abstract class IntegrationEventHandlerBase<TEvent> :
     /// <summary>
     /// Tipo CLR del evento manejado por este handler.
     /// </summary>
-    public Type HandledEventType => typeof(TEvent);
+    public Type HandledEventType
+    {
+        get
+        {
+            return typeof(TEvent);
+        }
+    }
 
     /// <summary>
     /// Maneja el mensaje raw (bytes): deserializa a <typeparamref name="TEvent"/> y delega al handler tipado.

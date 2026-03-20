@@ -1,4 +1,15 @@
-﻿Dominio (Aggregates root):
+﻿Convención de nombres
+=====================
+* Los event handlers deben implementar IntegrationEventHandlerBase<TEvent> y deben estar en un namespace que termine con .Integration.Handlers
+* Los eventos (usados en TEvent del handler) deben pertenecer a un namespace que termine con el aggregate, ej: 
+	namespace MyProject.Shared.IntegrationEvents.Persons;
+	namespace MyProject.Shared.IntegrationEvents.{aggregate};
+
+Ejemplo
+=======
+NOTA: Todo esto se hace automáticamente con la convención de nombres, no es necesario configurar nada manualmente.
+
+Dominio (Aggregates root):
 > Person
 > User
 
@@ -7,12 +18,12 @@ Servicios de proyección (uno por aggregate):
 > User.Projection
 
 Servicios "transversales" (comparten aggregates):
-> EmailService
-> WhatsAppService
+> EmailService (EmailWorkerService)
+> WhatsAppService (WhatsAppWorkerService)
 
 Exchanges por aggregate:
-> person.integration.events (o person.integration)
-> user.integration.events (o user.integration)
+> person.integration.events (o person.integration.dlx)
+> user.integration.events (o user.integration.dlx)
 
 	el producer de Person publica en person.integration
 	el producer de User publica en user.integration

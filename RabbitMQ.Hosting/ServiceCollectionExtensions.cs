@@ -1,30 +1,29 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
+﻿using Microsoft.Extensions.DependencyInjection.Extensions;
 using RabbitMQ.Client;
 using RabbitMQ.Core;
 using RabbitMQ.Hosting;
-using System;
-using System.Reflection;
+using Scrutor;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
 /// <summary>
-/// Extension methods para registrar consumers RabbitMQ en DI.
+/// Extension methods para registrar consumers y publishers RabbitMQ en DI.
 /// </summary>
-public static class ServiceCollectionExtensions
+public static partial class ServiceCollectionExtensions
 {
     /// <summary>
     /// Registra toda la infraestructura necesaria para consumir eventos de integración desde RabbitMQ.
     /// </summary>
     /// <param name="services">Colección de servicios DI.</param>
-    /// <param name="handlersAssembly">Assembly donde se encuentran los handlers de eventos de integración (clases que implementan <see cref="IIntegrationMessageHandler"/>).</param>
+    /// <param name="handlersAssembly">Assembly donde Scrutor debe buscar handlers.</param>
     /// <param name="configure">Acción que inicializa <see cref="RabbitOptions"/>.</param>
     public static IServiceCollection AddRabbitMqIntegrationConsumer(
         this IServiceCollection services,
-        Assembly handlersAssembly,
+        System.Reflection.Assembly handlersAssembly,
         Action<RabbitOptions> configure)
     {
         ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(handlersAssembly);
         ArgumentNullException.ThrowIfNull(configure);
 
         // =====================================================
@@ -38,16 +37,9 @@ public static class ServiceCollectionExtensions
         // =====================================================
         // Registra los handlers de los eventos de integración.
         //
-        // Opción A: uno por uno (manual).
-        // Opción B: con Scrutor (scan por assembly).
-        //
         // En este caso usamos Scrutor para no registrar handler por handler.
-        // Busca clases en el assembly de THandlerAssemblyMarker que implementen
+        // Busca clases en el assembly indicado que implementen
         // IIntegrationMessageHandler y las registra como sus interfaces.
-        //
-        // Resultado:
-        // DI podrá resolver IEnumerable<IIntegrationMessageHandler> con todos
-        // los handlers encontrados.
         // =====================================================
         services.Scan(scan => scan
             .FromAssemblies(handlersAssembly)
@@ -73,6 +65,13 @@ public static class ServiceCollectionExtensions
         // =====================================================
         services.AddSingleton<IntegrationEventDispatcher>();
 
+        // Estrategias de naming.
+        services.AddSingleton<IIntegrationEventNamingStrategy, DefaultIntegrationEventNamingStrategy>();
+        services.AddSingleton<IQueueNamingStrategy, DefaultQueueNamingStrategy>();
+
+        // Construye la topología por aggregate.
+        services.AddSingleton<IConsumerTopologyBuilder, ConsumerTopologyBuilder>();
+
         // =====================================================
         // RabbitMQ
         //
@@ -88,7 +87,7 @@ public static class ServiceCollectionExtensions
         {
             RabbitOptions opt = sp.GetRequiredService<RabbitOptions>();
 
-            return new ConnectionFactory
+            return new RabbitMQ.Client.ConnectionFactory
             {
                 HostName = opt.HostName,
                 UserName = opt.UserName,
@@ -97,23 +96,16 @@ public static class ServiceCollectionExtensions
         });
 
         // Registra Connection.
-        // [!] IMPORTANTE:
-        // Crea la conexión async, pero como estamos en composición DI (sync),
-        // usa "sync over async" con GetAwaiter().GetResult().
-        // En Worker está OK porque ocurre una sola vez durante startup.
-        services.AddSingleton<IConnection>(sp =>
+        services.AddSingleton<RabbitMQ.Client.IConnection>(sp =>
         {
-            ConnectionFactory connectionFactory = sp.GetRequiredService<ConnectionFactory>();
+            RabbitMQ.Client.ConnectionFactory connectionFactory = sp.GetRequiredService<RabbitMQ.Client.ConnectionFactory>();
             return connectionFactory.CreateConnectionAsync().GetAwaiter().GetResult();
         });
 
-        // Registra el inicializador de topología RabbitMQ.
+        // Inicializador de topología.
         services.AddSingleton<RabbitMqTopologyInitializer>();
 
-        // Registra el Worker genérico.
-        //
-        // AddHostedService<T> le dice al Host:
-        // "cuando la aplicación arranque, ejecutá este BackgroundService".
+        // Worker genérico.
         services.AddHostedService<RabbitMqConsumerWorker>();
 
         return services;
@@ -191,7 +183,10 @@ public static class ServiceCollectionExtensions
 
         services.AddRabbitMqPublisher(configure);
 
+        // Estrategia de naming compartida entre producers y consumers.
         services.TryAddSingleton<IIntegrationEventNamingStrategy, DefaultIntegrationEventNamingStrategy>();
+
+        // Publicador basado en convención.
         services.TryAddSingleton<IConventionIntegrationEventPublisher, ConventionIntegrationEventPublisher>();
 
         return services;

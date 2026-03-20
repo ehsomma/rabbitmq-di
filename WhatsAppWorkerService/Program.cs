@@ -31,21 +31,15 @@ HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
 // NOTE: Por ahora las opt estan hardcode. Más adelante pasar a appsettings.json + IOptions.
 builder.Services.AddRabbitMqIntegrationConsumer(
-    typeof(Program).Assembly, 
+    typeof(Program).Assembly,
     opt =>
-        {
-            opt.ServiceName = "WhatsAppService";
-            opt.HostName = "localhost";
-            opt.UserName = "guest";
-            opt.Password = "guest";
-            opt.ExchangeName = "persons.integration";
-            opt.QueueName = "whatsapp.persons.integration";
-            opt.BindingKey = "persons.*";
-            opt.DlxName = "whatsapp.persons.integration.dlx";
-            opt.DlqName = "whatsapp.persons.integration.dlq";
-            opt.DlqRoutingKey = "whatsapp.persons.dlq";
-            opt.PrefetchCount = 10;
-});
+    {
+        opt.ServiceName = "whatsapp";
+        opt.HostName = "localhost";
+        opt.UserName = "guest";
+        opt.Password = "guest";
+        opt.PrefetchCount = 10;
+    });
 
 IHost host = builder.Build();
 await host.RunAsync();

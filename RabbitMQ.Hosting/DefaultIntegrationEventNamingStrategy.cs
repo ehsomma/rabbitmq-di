@@ -65,8 +65,10 @@ public sealed class DefaultIntegrationEventNamingStrategy : IIntegrationEventNam
     /// Namespace: MyProject.Shared.IntegrationEvents.Persons
     /// Resultado: persons
     /// </remarks>
-    private static string GetAggregateName(Type eventType)
+    public string GetAggregateName(Type eventType)
     {
+        ArgumentNullException.ThrowIfNull(eventType);
+
         string? ns = eventType.Namespace;
 
         if (string.IsNullOrWhiteSpace(ns))

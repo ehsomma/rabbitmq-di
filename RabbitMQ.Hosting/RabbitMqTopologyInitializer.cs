@@ -1,5 +1,4 @@
 ﻿using RabbitMQ.Client;
-using RabbitMQ.Core;
 
 namespace RabbitMQ.Hosting;
 
@@ -16,7 +15,8 @@ public sealed class RabbitMqTopologyInitializer
     /// </summary>
     public async Task InitializeAsync(
         IChannel channel,
-        RabbitOptions opt,
+        AggregateQueueDefinition definition,
+        ushort prefetchCount,
         CancellationToken cancellationToken = default)
     {
         /*
@@ -47,8 +47,8 @@ public sealed class RabbitMqTopologyInitializer
 
         // DLX: Exchange donde RabbitMQ re-publica mensajes dead-lettered.
         await channel.ExchangeDeclareAsync(
-            exchange: opt.DlxName,
-            type: ExchangeType.Direct, // Direct es suficiente para DLQ.
+            exchange: definition.DlxName,
+            type: ExchangeType.Direct,
             durable: true,
             autoDelete: false,
             arguments: null,
@@ -56,7 +56,7 @@ public sealed class RabbitMqTopologyInitializer
 
         // DLQ: Cola que recibirá los mensajes rechazados / fallidos.
         await channel.QueueDeclareAsync(
-            queue: opt.DlqName,
+            queue: definition.DlqName,
             durable: true,
             exclusive: false,
             autoDelete: false,
@@ -65,27 +65,23 @@ public sealed class RabbitMqTopologyInitializer
 
         // Bind DLQ al DLX.
         await channel.QueueBindAsync(
-            queue: opt.DlqName,
-            exchange: opt.DlxName,
-            routingKey: opt.DlqRoutingKey,
+            queue: definition.DlqName,
+            exchange: definition.DlxName,
+            routingKey: definition.DlqRoutingKey,
             cancellationToken: cancellationToken);
 
         // =====================================================
-        // 2) Define los argumentos de la queue principal para
-        //    habilitar dead-lettering.
+        // 2) Define argumentos de la queue principal.
         // =====================================================
 
-        Dictionary<string, object?> mainQueueArgs = new Dictionary<string, object?>
+        Dictionary<string, object?> mainQueueArgs = new()
         {
-            // Exchange al que RabbitMQ enviará el mensaje cuando se rechace.
-            ["x-dead-letter-exchange"] = opt.DlxName,
-
-            // Routing key que usará RabbitMQ al reenviarlo al DLX.
-            ["x-dead-letter-routing-key"] = opt.DlqRoutingKey,
+            ["x-dead-letter-exchange"] = definition.DlxName,
+            ["x-dead-letter-routing-key"] = definition.DlqRoutingKey,
         };
 
         // =====================================================
-        // 3) Declara exchange + queue + bind del servicio.
+        // 3) Declara exchange principal + queue principal + binds.
         // =====================================================
         //
         // [!] IMPORTANTE:
@@ -96,8 +92,8 @@ public sealed class RabbitMqTopologyInitializer
         // Exchange: Es el "distribuidor", recibe mensajes del producer y decide a qué cola(s) enviarlos según
         // reglas (tipo Direct, Topic, Fanout, etc.). 
         await channel.ExchangeDeclareAsync(
-            opt.ExchangeName,
-            ExchangeType.Topic,
+            exchange: definition.ExchangeName,
+            type: ExchangeType.Topic,
             durable: true,
             autoDelete: false,
             arguments: null,
@@ -106,7 +102,7 @@ public sealed class RabbitMqTopologyInitializer
         // Queue principal del microservicio.
         // Queue: Es donde se almacenan los mensajes hasta que un consumer los procesa.
         await channel.QueueDeclareAsync(
-            queue: opt.QueueName,
+            queue: definition.QueueName,
             durable: true,
             exclusive: false,
             autoDelete: false,
@@ -115,11 +111,14 @@ public sealed class RabbitMqTopologyInitializer
 
         // Bind queue -> exchange mediante topic.
         // Bind: Es la regla que conecta el exchage con la queue
-        await channel.QueueBindAsync(
-            opt.QueueName,
-            opt.ExchangeName,
-            opt.BindingKey,
-            cancellationToken: cancellationToken);
+        foreach (string routingKey in definition.RoutingKeys)
+        {
+            await channel.QueueBindAsync(
+                queue: definition.QueueName,
+                exchange: definition.ExchangeName,
+                routingKey: routingKey,
+                cancellationToken: cancellationToken);
+        }
 
         // =====================================================
         // 4) Configura el QoS (Quality of Service)
@@ -133,7 +132,7 @@ public sealed class RabbitMqTopologyInitializer
         // - Como autoAck = false, el mensaje se considera pendiente hasta ACK/NACK.
         await channel.BasicQosAsync(
             prefetchSize: 0,
-            prefetchCount: opt.PrefetchCount,
+            prefetchCount: prefetchCount,
             global: false,
             cancellationToken: cancellationToken);
     }
